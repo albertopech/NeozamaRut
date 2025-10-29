@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:google_maps_flutter/google_maps_flutter.dart';
 import '../styles/app_styles.dart';
 
 class MapView extends StatefulWidget {
@@ -12,6 +13,16 @@ class _MapViewState extends State<MapView> with SingleTickerProviderStateMixin {
   final TextEditingController _searchController = TextEditingController();
   late AnimationController _pulseController;
   int _selectedIndex = 0;
+  GoogleMapController? _mapController;
+
+  // Coordenadas iniciales (Cancún, México)
+  static const CameraPosition _initialPosition = CameraPosition(
+    target: LatLng(21.1619, -86.8515),
+    zoom: 14,
+  );
+
+  // Marcadores de autobuses
+  final Set<Marker> _busMarkers = {};
 
   @override
   void initState() {
@@ -20,12 +31,38 @@ class _MapViewState extends State<MapView> with SingleTickerProviderStateMixin {
       duration: const Duration(seconds: 2),
       vsync: this,
     )..repeat();
+
+    _createBusMarkers();
+  }
+
+  void _createBusMarkers() {
+    _busMarkers.addAll([
+      Marker(
+        markerId: const MarkerId('bus1'),
+        position: const LatLng(21.1619, -86.8515),
+        icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueRed),
+        infoWindow: const InfoWindow(title: 'Ruta 12'),
+      ),
+      Marker(
+        markerId: const MarkerId('bus2'),
+        position: const LatLng(21.1650, -86.8480),
+        icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueOrange),
+        infoWindow: const InfoWindow(title: 'Ruta 8'),
+      ),
+      Marker(
+        markerId: const MarkerId('bus3'),
+        position: const LatLng(21.1590, -86.8550),
+        icon: BitmapDescriptor.defaultMarkerWithHue(BitmapDescriptor.hueYellow),
+        infoWindow: const InfoWindow(title: 'Ruta 5'),
+      ),
+    ]);
   }
 
   @override
   void dispose() {
     _searchController.dispose();
     _pulseController.dispose();
+    _mapController?.dispose();
     super.dispose();
   }
 
@@ -36,8 +73,19 @@ class _MapViewState extends State<MapView> with SingleTickerProviderStateMixin {
     return Scaffold(
       body: Stack(
         children: [
-          // Mapa de fondo
-          _buildMapBackground(),
+          // Google Maps de fondo
+          GoogleMap(
+            initialCameraPosition: _initialPosition,
+            onMapCreated: (GoogleMapController controller) {
+              _mapController = controller;
+            },
+            markers: _busMarkers,
+            myLocationEnabled: true,
+            myLocationButtonEnabled: false,
+            zoomControlsEnabled: false,
+            mapToolbarEnabled: false,
+            mapType: MapType.normal,
+          ),
 
           // Barra de búsqueda superior
           Positioned(
@@ -53,12 +101,6 @@ class _MapViewState extends State<MapView> with SingleTickerProviderStateMixin {
             top: MediaQuery.of(context).padding.top + 96,
             child: _buildSideButtons(isDark),
           ),
-
-          // Marcadores de autobuses animados
-          _buildBusMarkers(),
-
-          // Marcadores de ubicación
-          _buildLocationMarkers(),
 
           // Tarjeta de información de ruta
           Positioned(
@@ -76,36 +118,6 @@ class _MapViewState extends State<MapView> with SingleTickerProviderStateMixin {
             child: _buildBottomNavigation(isDark),
           ),
         ],
-      ),
-    );
-  }
-
-  Widget _buildMapBackground() {
-    return Container(
-      decoration: BoxDecoration(
-        image: DecorationImage(
-          image: const NetworkImage(
-            'https://lh3.googleusercontent.com/aida-public/AB6AXuAemrvr9oSGx8gmrF27BStZVhFiCwt7hOmfTdMda0QprRp1KI52-E_PvfT2dWYZHmFMCisXIU28ePY-4ayc-pX2ysqtjW4_E3MFIxme4YkIyFC8IQU2eneDxcp6K--ARZg4Io-5dtPOAtV9vEbaQSfZwCx8WbFAYjvbWyXrTDHoJtYQQ2vABBvcxg80S7aUrgse2nWH1ki_I6KGU7DSeIPWUPG2Vsj6Fwy0OVKhmX7GeoQo4FfXJ89ulbIzhf2sAtIJahqZMNk6xVq_',
-          ),
-          fit: BoxFit.cover,
-          colorFilter: ColorFilter.mode(
-            Colors.black.withOpacity(0.1),
-            BlendMode.darken,
-          ),
-        ),
-      ),
-      child: Container(
-        decoration: BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-            colors: [
-              Colors.transparent,
-              Colors.black.withOpacity(0.2),
-            ],
-            stops: const [0.6, 1.0],
-          ),
-        ),
       ),
     );
   }
@@ -158,12 +170,28 @@ class _MapViewState extends State<MapView> with SingleTickerProviderStateMixin {
           icon: Icons.layers_outlined,
           color: isDark ? AppColors.gold : AppColors.brown,
           isDark: isDark,
+          onPressed: () {
+            // Cambiar tipo de mapa
+            if (_mapController != null) {
+              setState(() {
+                // Aquí puedes alternar entre mapType
+              });
+            }
+          },
         ),
         const SizedBox(height: 12),
         _buildRoundButton(
           icon: Icons.my_location,
           color: isDark ? AppColors.white : AppColors.slate800,
           isDark: isDark,
+          onPressed: () {
+            // Centrar en ubicación actual
+            if (_mapController != null) {
+              _mapController!.animateCamera(
+                CameraUpdate.newLatLng(const LatLng(21.1619, -86.8515)),
+              );
+            }
+          },
         ),
       ],
     );
@@ -173,6 +201,7 @@ class _MapViewState extends State<MapView> with SingleTickerProviderStateMixin {
     required IconData icon,
     required Color color,
     required bool isDark,
+    required VoidCallback onPressed,
   }) {
     return Container(
       width: 48,
@@ -186,156 +215,8 @@ class _MapViewState extends State<MapView> with SingleTickerProviderStateMixin {
       ),
       child: IconButton(
         icon: Icon(icon, color: color, size: 24),
-        onPressed: () {},
+        onPressed: onPressed,
       ),
-    );
-  }
-
-  Widget _buildBusMarkers() {
-    return Stack(
-      children: [
-        // Bus 1 - centro
-        Positioned(
-          top: MediaQuery.of(context).size.height * 0.5,
-          left: MediaQuery.of(context).size.width * 0.5 - 16,
-          child: _buildBusMarker(AppColors.primary, 0),
-        ),
-
-        // Bus 2
-        Positioned(
-          top: MediaQuery.of(context).size.height * 0.33,
-          left: MediaQuery.of(context).size.width * 0.25 - 16,
-          child: _buildBusMarker(AppColors.brown, 500),
-        ),
-
-        // Bus 3
-        Positioned(
-          bottom: MediaQuery.of(context).size.height * 0.25,
-          right: MediaQuery.of(context).size.width * 0.25 - 16,
-          child: _buildBusMarker(AppColors.gold, 1000),
-        ),
-
-        // Bus 4
-        Positioned(
-          top: MediaQuery.of(context).size.height * 0.55,
-          left: MediaQuery.of(context).size.width * 0.65 - 16,
-          child: _buildBusMarker(AppColors.primary, 1500),
-        ),
-
-        // Bus 5 - más pequeño
-        Positioned(
-          top: MediaQuery.of(context).size.height * 0.30,
-          left: MediaQuery.of(context).size.width * 0.80 - 14,
-          child: Container(
-            width: 28,
-            height: 28,
-            decoration: BoxDecoration(
-              color: AppColors.brown.withOpacity(0.9),
-              shape: BoxShape.circle,
-              boxShadow: AppShadows.icon,
-            ),
-            child: const Icon(
-              Icons.directions_bus,
-              color: AppColors.white,
-              size: 14,
-            ),
-          ),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildBusMarker(Color color, int delay) {
-    return AnimatedBuilder(
-      animation: _pulseController,
-      builder: (context, child) {
-        final animation = Tween<double>(begin: 1.0, end: 1.1).animate(
-          CurvedAnimation(
-            parent: _pulseController,
-            curve: Interval(
-              (delay % 2000) / 2000,
-              ((delay % 2000) + 1000) / 2000,
-              curve: Curves.easeInOut,
-            ),
-          ),
-        );
-
-        return Transform.scale(
-          scale: animation.value,
-          child: Opacity(
-            opacity: 1.0 - (animation.value - 1.0) * 3,
-            child: Container(
-              width: 32,
-              height: 32,
-              decoration: BoxDecoration(
-                color: color,
-                shape: BoxShape.circle,
-                boxShadow: AppShadows.icon,
-              ),
-              child: const Icon(
-                Icons.directions_bus,
-                color: AppColors.white,
-                size: 16,
-              ),
-            ),
-          ),
-        );
-      },
-    );
-  }
-
-  Widget _buildLocationMarkers() {
-    return Stack(
-      children: [
-        Positioned(
-          top: MediaQuery.of(context).size.height * 0.6,
-          left: MediaQuery.of(context).size.width * 0.3 - 18,
-          child: const Icon(
-            Icons.place,
-            color: AppColors.primary,
-            size: 36,
-            shadows: [
-              Shadow(
-                color: Colors.black26,
-                offset: Offset(0, 2),
-                blurRadius: 4,
-              ),
-            ],
-          ),
-        ),
-        Positioned(
-          top: MediaQuery.of(context).size.height * 0.4,
-          left: MediaQuery.of(context).size.width * 0.7 - 18,
-          child: const Icon(
-            Icons.place,
-            color: AppColors.brown,
-            size: 36,
-            shadows: [
-              Shadow(
-                color: Colors.black26,
-                offset: Offset(0, 2),
-                blurRadius: 4,
-              ),
-            ],
-          ),
-        ),
-        Positioned(
-          top: MediaQuery.of(context).size.height * 0.25,
-          left: MediaQuery.of(context).size.width * 0.5 - 18,
-          child: const Icon(
-            Icons.place,
-            color: AppColors.gold,
-            size: 36,
-            shadows: [
-              Shadow(
-                color: Colors.black26,
-                offset: Offset(0, 2),
-                blurRadius: 4,
-              ),
-            ],
-          ),
-        ),
-      ],
     );
   }
 

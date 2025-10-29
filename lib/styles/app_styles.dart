@@ -14,6 +14,7 @@ class AppColors {
   static const Color slate800 = Color(0xFF1E293B);
   static const Color slate600 = Color(0xFF475569);
   static const Color slate500 = Color(0xFF64748B);
+  static const Color slate300 = Color(0xFFCBD5E1);
   static const Color slate400 = Color(0xFF94A3B8);
   static const Color slate200 = Color(0xFFE2E8F0);
   static const Color slate100 = Color(0xFFF1F5F9);
@@ -24,25 +25,20 @@ class AppColors {
 }
 
 class AppTextStyles {
-  static const String fontFamily = 'Public Sans';
-
   // Títulos
   static const TextStyle h1 = TextStyle(
-    fontFamily: fontFamily,
     fontSize: 32,
     fontWeight: FontWeight.bold,
     height: 1.2,
   );
 
   static const TextStyle h2 = TextStyle(
-    fontFamily: fontFamily,
     fontSize: 24,
     fontWeight: FontWeight.bold,
     height: 1.3,
   );
 
   static const TextStyle h3 = TextStyle(
-    fontFamily: fontFamily,
     fontSize: 18,
     fontWeight: FontWeight.bold,
     height: 1.4,
@@ -50,21 +46,18 @@ class AppTextStyles {
 
   // Texto regular
   static const TextStyle bodyLarge = TextStyle(
-    fontFamily: fontFamily,
     fontSize: 16,
     fontWeight: FontWeight.normal,
     height: 1.5,
   );
 
   static const TextStyle bodyMedium = TextStyle(
-    fontFamily: fontFamily,
     fontSize: 14,
     fontWeight: FontWeight.normal,
     height: 1.5,
   );
 
   static const TextStyle bodySmall = TextStyle(
-    fontFamily: fontFamily,
     fontSize: 12,
     fontWeight: FontWeight.normal,
     height: 1.5,
@@ -72,7 +65,6 @@ class AppTextStyles {
 
   // Texto especial
   static const TextStyle caption = TextStyle(
-    fontFamily: fontFamily,
     fontSize: 12,
     fontWeight: FontWeight.w500,
     height: 1.4,
@@ -132,7 +124,6 @@ class AppTheme {
     brightness: Brightness.light,
     primaryColor: AppColors.primary,
     scaffoldBackgroundColor: AppColors.backgroundLight,
-    fontFamily: AppTextStyles.fontFamily,
 
     colorScheme: const ColorScheme.light(
       primary: AppColors.primary,
@@ -154,7 +145,6 @@ class AppTheme {
     brightness: Brightness.dark,
     primaryColor: AppColors.primary,
     scaffoldBackgroundColor: AppColors.backgroundDark,
-    fontFamily: AppTextStyles.fontFamily,
 
     colorScheme: const ColorScheme.dark(
       primary: AppColors.primary,

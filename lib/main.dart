@@ -3,11 +3,9 @@ import 'package:flutter/services.dart';
 import 'styles/app_styles.dart';
 import 'views/map_view.dart';
 
-
 void main() {
   WidgetsFlutterBinding.ensureInitialized();
 
-  // Configurar la barra de estado
   SystemChrome.setSystemUIOverlayStyle(
     const SystemUiOverlayStyle(
       statusBarColor: Colors.transparent,
