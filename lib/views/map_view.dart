@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
 import '../styles/app_styles.dart';
+import 'routes_view.dart';
+import 'schedules_view.dart';
 
 class MapView extends StatefulWidget {
   const MapView({super.key});
@@ -346,21 +348,41 @@ class _MapViewState extends State<MapView> with SingleTickerProviderStateMixin {
               label: 'Mapa',
               isSelected: _selectedIndex == 0,
               isDark: isDark,
-              onTap: () => setState(() => _selectedIndex = 0),
+              onTap: () {
+                setState(() => _selectedIndex = 0);
+              },
             ),
             _buildNavItem(
               icon: Icons.subscriptions_outlined,
               label: 'Rutas',
               isSelected: _selectedIndex == 1,
               isDark: isDark,
-              onTap: () => setState(() => _selectedIndex = 1),
+              onTap: () {
+                setState(() => _selectedIndex = 1);
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (context) => const RoutesView()),
+                ).then((_) {
+                  // Cuando vuelvas del RoutesView, resetea el índice a 0
+                  setState(() => _selectedIndex = 0);
+                });
+              },
             ),
             _buildNavItem(
               icon: Icons.schedule,
               label: 'Horarios',
               isSelected: _selectedIndex == 2,
               isDark: isDark,
-              onTap: () => setState(() => _selectedIndex = 2),
+              onTap: () {
+                setState(() => _selectedIndex = 2);
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (context) => const SchedulesView()),
+                ).then((_) {
+                  // Cuando vuelvas del SchedulesView, resetea el índice a 0
+                  setState(() => _selectedIndex = 0);
+                });
+              },
             ),
           ],
         ),
@@ -390,7 +412,14 @@ class _MapViewState extends State<MapView> with SingleTickerProviderStateMixin {
             mainAxisSize: MainAxisSize.min,
             children: [
               Icon(
-                isSelected ? Icons.map : icon,
+                // Cambia el icono según la vista actual
+                label == 'Mapa' && isSelected
+                    ? Icons.map
+                    : label == 'Rutas' && isSelected
+                    ? Icons.subscriptions
+                    : label == 'Horarios' && isSelected
+                    ? Icons.schedule
+                    : icon,
                 color: color,
                 size: 28,
               ),
