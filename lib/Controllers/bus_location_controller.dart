@@ -168,8 +168,7 @@ class BusLocationController {
         .from('bus_locations')
         .stream(primaryKey: ['id'])
         .eq('route_id', routeId)
-        .eq('is_active', true)
-        .order('last_updated', ascending: false);
+        .eq('is_active', true);
   }
 
   /// Stream de todas las ubicaciones activas en tiempo real
@@ -179,8 +178,7 @@ class BusLocationController {
     return _supabase
         .from('bus_locations')
         .stream(primaryKey: ['id'])
-        .eq('is_active', true)
-        .order('last_updated', ascending: false);
+        .eq('is_active', true);
   }
 
   /// Actualizar la ubicación de un autobús

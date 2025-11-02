@@ -2,10 +2,13 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'styles/app_styles.dart';
 import 'views/map_view.dart';
+import 'models/supabase_service.dart';
 
-void main() {
+void main() async {
+  // Asegurar que los bindings de Flutter estén inicializados
   WidgetsFlutterBinding.ensureInitialized();
 
+  // Configurar la barra de estado
   SystemChrome.setSystemUIOverlayStyle(
     const SystemUiOverlayStyle(
       statusBarColor: Colors.transparent,
@@ -13,6 +16,15 @@ void main() {
       statusBarBrightness: Brightness.light,
     ),
   );
+
+  // ⭐ INICIALIZAR SUPABASE
+  try {
+    await SupabaseService.instance.initialize();
+    print('✅ Aplicación iniciada correctamente');
+  } catch (e) {
+    print('❌ Error crítico al iniciar la aplicación: $e');
+    // En producción, podrías mostrar una pantalla de error
+  }
 
   runApp(const MyApp());
 }
