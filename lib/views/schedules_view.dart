@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import '../Controllers/routes_controller.dart';
+import '../Controllers/schedules_controller.dart';
 import '../styles/app_styles.dart';
 
 class SchedulesView extends StatefulWidget {
@@ -10,12 +12,53 @@ class SchedulesView extends StatefulWidget {
 
 class _SchedulesViewState extends State<SchedulesView> {
   final TextEditingController _searchController = TextEditingController();
-  int _selectedIndex = 2; // Horarios está seleccionado
+  final RoutesController _routesController = RoutesController();
+  final SchedulesController _schedulesController = SchedulesController();
+
+  int _selectedIndex = 2;
+  List<Map<String, dynamic>> _routesWithSchedules = [];
+  bool _isLoading = true;
+
+  @override
+  void initState() {
+    super.initState();
+    _loadSchedules();
+  }
 
   @override
   void dispose() {
     _searchController.dispose();
     super.dispose();
+  }
+
+  Future<void> _loadSchedules() async {
+    setState(() => _isLoading = true);
+
+    try {
+      final routes = await _routesController.getAllActiveRoutes();
+      final routesWithSchedules = <Map<String, dynamic>>[];
+
+      for (final route in routes) {
+        final routeId = route['id'] as String;
+        final schedules = await _schedulesController.getRouteSchedules(routeId);
+
+        routesWithSchedules.add({
+          ...route,
+          'schedules': schedules,
+          'hasSchedules': schedules.isNotEmpty,
+        });
+      }
+
+      setState(() {
+        _routesWithSchedules = routesWithSchedules;
+        _isLoading = false;
+      });
+
+      print('✅ Cargados horarios de ${routesWithSchedules.length} rutas');
+    } catch (e) {
+      print('❌ Error cargando horarios: $e');
+      setState(() => _isLoading = false);
+    }
   }
 
   @override
@@ -28,20 +71,15 @@ class _SchedulesViewState extends State<SchedulesView> {
         children: [
           Column(
             children: [
-              // Header
               _buildHeader(isDark),
-
-              // Search y Filtros
               _buildSearchAndFilters(isDark),
-
-              // Contenido principal
               Expanded(
-                child: _buildContent(isDark),
+                child: _isLoading
+                    ? const Center(child: CircularProgressIndicator())
+                    : _buildContent(isDark),
               ),
             ],
           ),
-
-          // Barra de navegación inferior
           Positioned(
             bottom: 0,
             left: 0,
@@ -72,7 +110,7 @@ class _SchedulesViewState extends State<SchedulesView> {
           Container(
             width: 48,
             height: 48,
-            decoration: BoxDecoration(
+            decoration: const BoxDecoration(
               color: Colors.transparent,
             ),
             child: IconButton(
@@ -95,7 +133,7 @@ class _SchedulesViewState extends State<SchedulesView> {
           Container(
             width: 48,
             height: 48,
-            decoration: BoxDecoration(
+            decoration: const BoxDecoration(
               color: Colors.transparent,
             ),
             child: IconButton(
@@ -114,120 +152,74 @@ class _SchedulesViewState extends State<SchedulesView> {
   Widget _buildSearchAndFilters(bool isDark) {
     return Padding(
       padding: const EdgeInsets.all(16),
-      child: Column(
-        children: [
-          // Barra de búsqueda
-          Container(
-            height: 48,
-            decoration: BoxDecoration(
-              color: isDark ? AppColors.slate800 : AppColors.white,
-              borderRadius: BorderRadius.circular(12),
-              border: Border.all(
-                color: isDark ? AppColors.slate600 : AppColors.slate300,
-              ),
-              boxShadow: [
-                BoxShadow(
-                  color: Colors.black.withOpacity(0.05),
-                  blurRadius: 4,
-                  offset: const Offset(0, 2),
-                ),
-              ],
-            ),
-            child: Row(
-              children: [
-                Padding(
-                  padding: const EdgeInsets.only(left: 16),
-                  child: Icon(
-                    Icons.search,
-                    color: isDark ? AppColors.brown : AppColors.brown,
-                    size: 24,
-                  ),
-                ),
-                Expanded(
-                  child: TextField(
-                    controller: _searchController,
-                    style: AppTextStyles.bodyMedium.copyWith(
-                      color: isDark ? AppColors.slate200 : AppColors.brown,
-                    ),
-                    decoration: InputDecoration(
-                      hintText: 'Buscar ruta, parada o destino...',
-                      hintStyle: AppTextStyles.bodyMedium.copyWith(
-                        color: isDark
-                            ? AppColors.brown.withOpacity(0.6)
-                            : AppColors.brown.withOpacity(0.6),
-                      ),
-                      border: InputBorder.none,
-                      contentPadding: const EdgeInsets.symmetric(
-                        horizontal: 16,
-                        vertical: 12,
-                      ),
-                    ),
-                  ),
-                ),
-              ],
-            ),
+      child: Container(
+        height: 48,
+        decoration: BoxDecoration(
+          color: isDark ? AppColors.slate800 : AppColors.white,
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(
+            color: isDark ? AppColors.slate600 : AppColors.slate300,
           ),
-          const SizedBox(height: 12),
-
-          // Botones de filtro
-          SingleChildScrollView(
-            scrollDirection: Axis.horizontal,
-            child: Row(
-              children: [
-                _buildFilterButton(
-                  icon: Icons.directions_bus,
-                  label: 'Tipo de transporte',
-                  isDark: isDark,
-                ),
-                const SizedBox(width: 12),
-                _buildFilterButton(
-                  icon: Icons.calendar_today,
-                  label: 'Fecha',
-                  isDark: isDark,
-                ),
-              ],
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withOpacity(0.05),
+              blurRadius: 4,
+              offset: const Offset(0, 2),
             ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildFilterButton({
-    required IconData icon,
-    required String label,
-    required bool isDark,
-  }) {
-    return Container(
-      height: 36,
-      padding: const EdgeInsets.symmetric(horizontal: 16),
-      decoration: BoxDecoration(
-        color: isDark ? AppColors.slate800 : AppColors.white,
-        border: Border.all(
-          color: isDark ? AppColors.slate600 : AppColors.slate300,
+          ],
         ),
-        borderRadius: BorderRadius.circular(18),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(icon, size: 20, color: isDark ? AppColors.brown : AppColors.brown),
-          const SizedBox(width: 8),
-          Text(
-            label,
-            style: AppTextStyles.bodySmall.copyWith(
-              fontWeight: FontWeight.w500,
-              color: isDark ? AppColors.brown : AppColors.brown,
+        child: Row(
+          children: [
+            Padding(
+              padding: const EdgeInsets.only(left: 16),
+              child: Icon(
+                Icons.search,
+                color: isDark ? AppColors.brown : AppColors.brown,
+                size: 24,
+              ),
             ),
-          ),
-          const SizedBox(width: 8),
-          Icon(Icons.arrow_drop_down, size: 20, color: isDark ? AppColors.brown : AppColors.brown),
-        ],
+            Expanded(
+              child: TextField(
+                controller: _searchController,
+                style: AppTextStyles.bodyMedium.copyWith(
+                  color: isDark ? AppColors.slate200 : AppColors.brown,
+                ),
+                decoration: InputDecoration(
+                  hintText: 'Buscar ruta, parada o destino...',
+                  hintStyle: AppTextStyles.bodyMedium.copyWith(
+                    color: isDark
+                        ? AppColors.brown.withOpacity(0.6)
+                        : AppColors.brown.withOpacity(0.6),
+                  ),
+                  border: InputBorder.none,
+                  contentPadding: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 12,
+                  ),
+                ),
+                onChanged: (value) => setState(() {}),
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
 
   Widget _buildContent(bool isDark) {
+    final filteredRoutes = _routesWithSchedules.where((route) {
+      if (_searchController.text.isEmpty) return true;
+
+      final searchLower = _searchController.text.toLowerCase();
+      final routeName = (route['route_name'] as String).toLowerCase();
+      final routeNumber = (route['route_number'] as String).toLowerCase();
+
+      return routeName.contains(searchLower) || routeNumber.contains(searchLower);
+    }).toList();
+
+    // Solo mostrar mensaje de "no resultados" si hay búsqueda activa y no hay resultados
+    final showNoResults = _searchController.text.isNotEmpty && filteredRoutes.isEmpty;
+
     return ListView(
       padding: const EdgeInsets.fromLTRB(16, 0, 16, 96),
       children: [
@@ -239,39 +231,26 @@ class _SchedulesViewState extends State<SchedulesView> {
         ),
         const SizedBox(height: 12),
 
-        // Acordeón 1 - Con detalles completos
-        _buildRouteAccordion(
-          icon: Icons.directions_bus,
-          title: 'Ruta 5 - Metro Chapultepec',
-          frequency: 'Frecuencia: 10-15 min',
-          price: '\$6.00 MXN',
-          hasDetails: true,
-          isDark: isDark,
-        ),
-        const SizedBox(height: 12),
+        // Mostrar rutas
+        ...filteredRoutes.map((route) {
+          return Padding(
+            padding: const EdgeInsets.only(bottom: 12),
+            child: _buildRouteAccordion(
+              icon: Icons.directions_bus,
+              title: '${route['route_number']} - ${route['route_name']}',
+              frequency: 'Frecuencia: ${route['frequency_minutes']} min',
+              schedules: route['schedules'] as List,
+              hasDetails: route['hasSchedules'] as bool,
+              isDark: isDark,
+            ),
+          );
+        }).toList(),
 
-        // Acordeón 2 - Sin detalles
-        _buildRouteAccordion(
-          icon: Icons.directions_bus,
-          title: 'Ruta 12 - Auditorio Nacional',
-          frequency: 'Frecuencia: 15-20 min',
-          hasDetails: false,
-          isDark: isDark,
-        ),
-        const SizedBox(height: 12),
-
-        // Acordeón 3 - Sin detalles
-        _buildRouteAccordion(
-          icon: Icons.airport_shuttle,
-          title: 'Combi 3A - Santa Fe',
-          frequency: 'Frecuencia: 5-10 min',
-          hasDetails: false,
-          isDark: isDark,
-        ),
-        const SizedBox(height: 24),
-
-        // Estado vacío
-        _buildEmptyState(isDark),
+        // Solo mostrar "no resultados" si hay búsqueda y no hay resultados
+        if (showNoResults) ...[
+          const SizedBox(height: 24),
+          _buildEmptyState(isDark),
+        ],
       ],
     );
   }
@@ -280,7 +259,7 @@ class _SchedulesViewState extends State<SchedulesView> {
     required IconData icon,
     required String title,
     required String frequency,
-    String? price,
+    required List<dynamic> schedules,
     required bool hasDetails,
     required bool isDark,
   }) {
@@ -342,7 +321,7 @@ class _SchedulesViewState extends State<SchedulesView> {
                 ),
               ),
               child: hasDetails
-                  ? _buildRouteDetails(isDark)
+                  ? _buildRouteDetails(schedules, isDark)
                   : Text(
                 'Detalles de horarios y precios para $title no disponibles en este momento.',
                 style: AppTextStyles.bodySmall.copyWith(
@@ -358,11 +337,21 @@ class _SchedulesViewState extends State<SchedulesView> {
     );
   }
 
-  Widget _buildRouteDetails(bool isDark) {
+  Widget _buildRouteDetails(List<dynamic> schedules, bool isDark) {
+    if (schedules.isEmpty) {
+      return Text(
+        'No hay horarios disponibles.',
+        style: AppTextStyles.bodySmall.copyWith(
+          color: isDark
+              ? AppColors.brown.withOpacity(0.7)
+              : AppColors.brown.withOpacity(0.7),
+        ),
+      );
+    }
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        // Tarifas
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
@@ -384,7 +373,7 @@ class _SchedulesViewState extends State<SchedulesView> {
                   Icon(Icons.sell, color: AppColors.gold, size: 18),
                   const SizedBox(width: 4),
                   Text(
-                    '\$6.00 MXN',
+                    '\$12.00 MXN',
                     style: AppTextStyles.bodyMedium.copyWith(
                       color: AppColors.gold,
                       fontWeight: FontWeight.bold,
@@ -396,14 +385,10 @@ class _SchedulesViewState extends State<SchedulesView> {
           ],
         ),
         const SizedBox(height: 16),
-
-        // Grid de tarifas
-        _buildPriceRow('Tarifa General:', '\$6.00', isDark),
+        _buildPriceRow('Tarifa General:', '\$12.00', isDark),
         const SizedBox(height: 8),
-        _buildPriceRow('Tarifa Estudiante:', '\$4.50', isDark),
+        _buildPriceRow('Tarifa Estudiante:', '\$8.00', isDark),
         const SizedBox(height: 16),
-
-        // Horarios
         Text(
           'Horarios (Lunes a Viernes)',
           style: AppTextStyles.h3.copyWith(
@@ -411,9 +396,7 @@ class _SchedulesViewState extends State<SchedulesView> {
           ),
         ),
         const SizedBox(height: 12),
-
-        // Tabla de horarios
-        _buildScheduleTable(isDark),
+        _buildScheduleTable(schedules, isDark),
       ],
     );
   }
@@ -441,7 +424,24 @@ class _SchedulesViewState extends State<SchedulesView> {
     );
   }
 
-  Widget _buildScheduleTable(bool isDark) {
+  Widget _buildScheduleTable(List<dynamic> schedules, bool isDark) {
+    if (schedules.isEmpty) {
+      return Text(
+        'No hay horarios disponibles.',
+        style: AppTextStyles.bodySmall.copyWith(
+          color: isDark
+              ? AppColors.brown.withOpacity(0.7)
+              : AppColors.brown.withOpacity(0.7),
+        ),
+      );
+    }
+
+    // Tomar el primer horario
+    final schedule = schedules.first;
+    final startTime = _schedulesController.formatTime(schedule['start_time']);
+    final endTime = _schedulesController.formatTime(schedule['end_time']);
+    final frequency = '${schedule['frequency_minutes']} min';
+
     return Container(
       decoration: BoxDecoration(
         border: Border.all(
@@ -467,24 +467,26 @@ class _SchedulesViewState extends State<SchedulesView> {
               children: [
                 Expanded(
                   child: Text(
-                    'SALIDA',
+                    'PRIMER CAMIÓN',
                     style: AppTextStyles.caption.copyWith(
                       color: isDark
                           ? AppColors.brown.withOpacity(0.7)
                           : AppColors.brown.withOpacity(0.7),
                       fontSize: 10,
                     ),
+                    textAlign: TextAlign.center,
                   ),
                 ),
                 Expanded(
                   child: Text(
-                    'LLEGADA (APROX.)',
+                    'ÚLTIMO CAMIÓN',
                     style: AppTextStyles.caption.copyWith(
                       color: isDark
                           ? AppColors.brown.withOpacity(0.7)
                           : AppColors.brown.withOpacity(0.7),
                       fontSize: 10,
                     ),
+                    textAlign: TextAlign.center,
                   ),
                 ),
                 Expanded(
@@ -496,70 +498,52 @@ class _SchedulesViewState extends State<SchedulesView> {
                           : AppColors.brown.withOpacity(0.7),
                       fontSize: 10,
                     ),
-                    textAlign: TextAlign.right,
+                    textAlign: TextAlign.center,
                   ),
                 ),
               ],
             ),
           ),
-
-          // Rows
-          _buildScheduleRow('05:30 AM', '06:15 AM', '10 min', isDark, true),
-          _buildScheduleRow('12:00 PM', '12:45 PM', '15 min', isDark, true),
-          _buildScheduleRow('10:00 PM', '10:45 PM', '20 min', isDark, false),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildScheduleRow(
-      String departure,
-      String arrival,
-      String frequency,
-      bool isDark,
-      bool hasBorder,
-      ) {
-    return Container(
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        border: hasBorder
-            ? Border(
-          bottom: BorderSide(
-            color: isDark ? AppColors.slate600 : AppColors.slate300,
-          ),
-        )
-            : null,
-      ),
-      child: Row(
-        children: [
-          Expanded(
-            child: Text(
-              departure,
-              style: AppTextStyles.bodySmall.copyWith(
-                color: isDark ? AppColors.slate100 : AppColors.brown,
-                fontWeight: FontWeight.w500,
-              ),
-            ),
-          ),
-          Expanded(
-            child: Text(
-              arrival,
-              style: AppTextStyles.bodySmall.copyWith(
-                color: isDark
-                    ? AppColors.brown.withOpacity(0.9)
-                    : AppColors.brown.withOpacity(0.9),
-              ),
-            ),
-          ),
-          Expanded(
-            child: Text(
-              frequency,
-              style: AppTextStyles.bodySmall.copyWith(
-                color: isDark
-                    ? AppColors.brown.withOpacity(0.9)
-                    : AppColors.brown.withOpacity(0.9),
-              ),
-              textAlign: TextAlign.right,
+          // Content
+          Container(
+            padding: const EdgeInsets.all(12),
+            child: Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    '$startTime AM',
+                    style: AppTextStyles.bodySmall.copyWith(
+                      color: isDark ? AppColors.slate100 : AppColors.brown,
+                      fontWeight: FontWeight.w600,
+                    ),
+                    textAlign: TextAlign.center,
+                  ),
+                ),
+                Expanded(
+                  child: Text(
+                    '$endTime PM',
+                    style: AppTextStyles.bodySmall.copyWith(
+                      color: isDark
+                          ? AppColors.brown.withOpacity(0.9)
+                          : AppColors.brown.withOpacity(0.9),
+                      fontWeight: FontWeight.w600,
+                    ),
+                    textAlign: TextAlign.center,
+                  ),
+                ),
+                Expanded(
+                  child: Text(
+                    frequency,
+                    style: AppTextStyles.bodySmall.copyWith(
+                      color: isDark
+                          ? AppColors.brown.withOpacity(0.9)
+                          : AppColors.brown.withOpacity(0.9),
+                      fontWeight: FontWeight.w600,
+                    ),
+                    textAlign: TextAlign.center,
+                  ),
+                ),
+              ],
             ),
           ),
         ],
@@ -649,9 +633,7 @@ class _SchedulesViewState extends State<SchedulesView> {
               label: 'Horarios',
               isSelected: _selectedIndex == 2,
               isDark: isDark,
-              onTap: () {
-                // Ya estamos en Horarios
-              },
+              onTap: () {},
             ),
           ],
         ),

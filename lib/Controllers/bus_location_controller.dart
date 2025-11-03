@@ -167,8 +167,9 @@ class BusLocationController {
     return _supabase
         .from('bus_locations')
         .stream(primaryKey: ['id'])
-        .eq('route_id', routeId)
-        .eq('is_active', true);
+        .map((data) => data
+        .where((item) => item['route_id'] == routeId && item['is_active'] == true)
+        .toList());
   }
 
   /// Stream de todas las ubicaciones activas en tiempo real
@@ -178,7 +179,9 @@ class BusLocationController {
     return _supabase
         .from('bus_locations')
         .stream(primaryKey: ['id'])
-        .eq('is_active', true);
+        .map((data) => data
+        .where((item) => item['is_active'] == true)
+        .toList());
   }
 
   /// Actualizar la ubicación de un autobús
