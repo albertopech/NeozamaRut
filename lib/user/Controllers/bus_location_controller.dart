@@ -1,6 +1,6 @@
 import 'dart:math';
 import 'package:supabase_flutter/supabase_flutter.dart';
-import '../models/supabase_service.dart';
+import '../../models/supabase_service.dart';
 
 /// Controlador para gestionar las ubicaciones de autobuses en tiempo real
 ///

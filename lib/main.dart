@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'styles/app_styles.dart';
-import 'views/map_view.dart';
+import 'user/views/user_login_view.dart';
 import 'models/supabase_service.dart';
 
 void main() async {
@@ -23,7 +23,6 @@ void main() async {
     print('✅ Aplicación iniciada correctamente');
   } catch (e) {
     print('❌ Error crítico al iniciar la aplicación: $e');
-    // En producción, podrías mostrar una pantalla de error
   }
 
   runApp(const MyApp());
@@ -40,7 +39,7 @@ class MyApp extends StatelessWidget {
       theme: AppTheme.lightTheme,
       darkTheme: AppTheme.darkTheme,
       themeMode: ThemeMode.system,
-      home: const MapView(),
+      home: const UserLoginView(), // ⬅️ Inicia directamente en login de usuario
     );
   }
 }

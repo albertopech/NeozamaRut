@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import '../Controllers/routes_controller.dart';
 import '../Controllers/schedules_controller.dart';
-import '../styles/app_styles.dart';
+import '/../styles/app_styles.dart';
 
 class SchedulesView extends StatefulWidget {
   const SchedulesView({super.key});

@@ -1,5 +1,5 @@
 import 'package:supabase_flutter/supabase_flutter.dart';
-import '../models/supabase_service.dart';
+import '../../models/supabase_service.dart';
 
 /// Controlador para gestionar las suscripciones de usuarios a rutas
 ///

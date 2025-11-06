@@ -78,6 +78,7 @@ class SupabaseService {
       rethrow;
     }
   }
+
   Future<bool> testConnection() async {
     try {
       // Intentar hacer una consulta simple

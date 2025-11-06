@@ -3,7 +3,7 @@ import 'package:google_maps_flutter/google_maps_flutter.dart';
 import '../Controllers/bus_location_controller.dart';
 import '../Controllers/routes_controller.dart';
 import '../Controllers/user_subscriptions_controller.dart';
-import '../styles/app_styles.dart';
+import '/../styles/app_styles.dart';
 import 'routes_view.dart';
 import 'schedules_view.dart';
 

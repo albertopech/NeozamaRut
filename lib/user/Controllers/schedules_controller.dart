@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:supabase_flutter/supabase_flutter.dart';
-import '../models/supabase_service.dart';
+import '../../models/supabase_service.dart';
 
 /// Controlador para gestionar los horarios de las rutas
 ///
