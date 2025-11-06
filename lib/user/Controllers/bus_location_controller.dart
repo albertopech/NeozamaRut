@@ -168,7 +168,7 @@ class BusLocationController {
         .from('bus_locations')
         .stream(primaryKey: ['id'])
         .map((data) => data
-        .where((item) => item['route_id'] == routeId && item['is_active'] == true)
+        .where((item) => item['route_id'] == routeId && (item['is_active'] as bool?) == true)
         .toList());
   }
 
@@ -180,7 +180,7 @@ class BusLocationController {
         .from('bus_locations')
         .stream(primaryKey: ['id'])
         .map((data) => data
-        .where((item) => item['is_active'] == true)
+        .where((item) => (item['is_active'] as bool?) == true) // ⬅️ CORRECCIÓN: Filtrar de forma segura
         .toList());
   }
 

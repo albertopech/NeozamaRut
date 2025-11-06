@@ -39,7 +39,7 @@ class MyApp extends StatelessWidget {
       theme: AppTheme.lightTheme,
       darkTheme: AppTheme.darkTheme,
       themeMode: ThemeMode.system,
-      home: const UserLoginView(), // ⬅️ Inicia directamente en login de usuario
+      home: const UserLoginView(), // ⬅️ Login unificado que detecta rol automáticamente
     );
   }
 }

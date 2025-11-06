@@ -2,12 +2,9 @@ import 'package:flutter/material.dart';
 import '../../shared/controllers/auth_controller.dart';
 import '../../styles/app_styles.dart';
 import 'map_view.dart';
+import '../../conductor/views/driver_map_view.dart';
+import '../../models/supabase_service.dart';
 
-/// Pantalla de login y registro para usuarios normales
-///
-/// Permite a los usuarios:
-/// - Iniciar sesión con email/contraseña
-/// - Registrarse como nuevo usuario
 class UserLoginView extends StatefulWidget {
   const UserLoginView({super.key});
 
@@ -33,6 +30,27 @@ class _UserLoginViewState extends State<UserLoginView> {
     super.dispose();
   }
 
+  // Nuevo método para obtener la ruta asignada al conductor desde Supabase
+  Future<Map<String, dynamic>?> _fetchDriverRoute(String userId) async {
+    try {
+      final response = await SupabaseService.instance.client
+          .from('user_subscriptions')
+          .select('route_id, routes(*)') // Obtener ruta por suscripción (join)
+          .eq('user_id', userId)
+          .limit(1)
+          .maybeSingle();
+
+      if (response != null && response['routes'] != null) {
+        // Retorna el mapa de detalles de la ruta
+        return response['routes'] as Map<String, dynamic>;
+      }
+      return null;
+    } catch (error) {
+      print('❌ Error al obtener la ruta del conductor: $error');
+      return null;
+    }
+  }
+
   Future<void> _handleSubmit() async {
     if (_emailController.text.isEmpty || _passwordController.text.isEmpty) {
       _showSnackBar('Por favor completa todos los campos', Colors.orange);
@@ -50,33 +68,82 @@ class _UserLoginViewState extends State<UserLoginView> {
       Map<String, dynamic>? result;
 
       if (_isLogin) {
-        // Login
+        // ⭐ Login con detección automática de rol
         result = await _authController.loginUser(
           email: _emailController.text.trim(),
           password: _passwordController.text,
         );
+
+        if (result != null && mounted) {
+          // Obtener el rol del usuario
+          final role = result['role'] ?? 'user';
+
+          print('✅ Login exitoso - Rol detectado: $role');
+
+          // Redirigir según el rol
+          if (role == 'driver') {
+            // Es conductor. Obtenemos la ruta de la DB.
+            final userId = _authController.getCurrentUser()?.id;
+
+            if (userId == null) {
+              // Esto no debería pasar, pero es una protección
+              _showSnackBar('Error: Usuario no autenticado tras login.', Colors.red);
+              await _authController.signOut();
+              return;
+            }
+
+            _showSnackBar('¡Bienvenido, conductor! Cargando ruta...', Colors.green);
+
+            final driverRoute = await _fetchDriverRoute(userId);
+
+            if (mounted) {
+              if (driverRoute != null) {
+                // Ruta encontrada: Navegar directamente a DriverMapView
+                Navigator.pushReplacement(
+                  context,
+                  MaterialPageRoute(
+                    builder: (context) => DriverMapView(route: driverRoute),
+                  ),
+                );
+              } else {
+                // Ruta NO encontrada: Mostrar error y evitar la navegación
+                _showSnackBar('Error: No se encontró una ruta asignada. Contacta a soporte.', Colors.red);
+                // Cerrar sesión ya que el conductor no puede operar sin ruta
+                await _authController.signOut();
+              }
+            }
+          } else {
+            // Es usuario normal
+            _showSnackBar('¡Bienvenido!', Colors.green);
+            Navigator.pushReplacement(
+              context,
+              MaterialPageRoute(
+                builder: (context) => const MapView(),
+              ),
+            );
+          }
+        } else {
+          _showSnackBar('Credenciales inválidas', Colors.red);
+        }
       } else {
-        // Registro
+        // Registro (siempre crea usuarios normales)
         result = await _authController.registerUser(
           email: _emailController.text.trim(),
           password: _passwordController.text,
           fullName: _nameController.text.trim(),
         );
-      }
 
-      if (result != null && mounted) {
-        _showSnackBar(
-          _isLogin ? '¡Bienvenido!' : '¡Cuenta creada exitosamente!',
-          Colors.green,
-        );
+        if (result != null && mounted) {
+          _showSnackBar('¡Cuenta creada exitosamente!', Colors.green);
 
-        // Navegar al mapa principal
-        Navigator.pushReplacement(
-          context,
-          MaterialPageRoute(builder: (context) => const MapView()),
-        );
-      } else {
-        _showSnackBar('Error en la autenticación', Colors.red);
+          // Los usuarios registrados van al mapa
+          Navigator.pushReplacement(
+            context,
+            MaterialPageRoute(builder: (context) => const MapView()),
+          );
+        } else {
+          _showSnackBar('Error al crear la cuenta', Colors.red);
+        }
       }
     } catch (e) {
       _showSnackBar('Error: $e', Colors.red);
@@ -109,7 +176,7 @@ class _UserLoginViewState extends State<UserLoginView> {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const SizedBox(height: 40), // Espacio superior en lugar del AppBar
+              const SizedBox(height: 40),
 
               // Logo o ícono de la app
               Center(
@@ -134,7 +201,7 @@ class _UserLoginViewState extends State<UserLoginView> {
               Center(
                 child: Text(
                   _isLogin
-                      ? 'Bienvenido de nuevo'
+                      ? 'Usuarios y conductores'
                       : 'Regístrate para empezar',
                   style: AppTextStyles.bodyMedium.copyWith(
                     color: isDark ? AppColors.slate400 : AppColors.slate600,
@@ -246,6 +313,38 @@ class _UserLoginViewState extends State<UserLoginView> {
                     ),
                   ),
                 ],
+              ),
+
+              const SizedBox(height: 16),
+
+              // Información para conductores
+              Container(
+                padding: const EdgeInsets.all(16),
+                decoration: BoxDecoration(
+                  color: AppColors.gold.withOpacity(0.1),
+                  borderRadius: BorderRadius.circular(12),
+                  border: Border.all(
+                    color: AppColors.gold.withOpacity(0.3),
+                  ),
+                ),
+                child: Row(
+                  children: [
+                    Icon(
+                      Icons.info_outline,
+                      color: AppColors.gold,
+                      size: 20,
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Text(
+                        'Los conductores usan sus credenciales asignadas para acceder',
+                        style: AppTextStyles.bodySmall.copyWith(
+                          color: isDark ? AppColors.slate200 : AppColors.slate800,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
               ),
             ],
           ),

@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:google_maps_flutter/google_maps_flutter.dart';
+import 'dart:async'; // ⬅️ NECESARIO PARA StreamSubscription
 import '../Controllers/bus_location_controller.dart';
 import '../Controllers/routes_controller.dart';
 import '../Controllers/user_subscriptions_controller.dart';
+import '../Controllers/traffic_alerts_controller.dart';
 import '/../styles/app_styles.dart';
 import 'routes_view.dart';
 import 'schedules_view.dart';
@@ -20,10 +22,21 @@ class _MapViewState extends State<MapView> {
   final BusLocationController _busController = BusLocationController();
   final RoutesController _routesController = RoutesController();
   final UserSubscriptionsController _subscriptionsController = UserSubscriptionsController();
+  final TrafficAlertsController _alertsController = TrafficAlertsController();
 
   Set<Marker> _markers = {};
   Set<Polyline> _polylines = {};
   bool _isLoading = true;
+
+  // NUEVOS ESTADOS PARA LA ALERTA SUPERIOR
+  String? _topAlertMessage;
+  bool _isAlertVisible = false;
+  Timer? _alertTimer;
+
+  // ⬅️ CORRECCIÓN: Lista para manejar todas las suscripciones de Streams
+  List<StreamSubscription> _alertSubscriptions = [];
+  StreamSubscription? _busLocationSubscription;
+
 
   // ID del usuario (mismo que en routes_view)
   final String _userId = '11111111-1111-1111-1111-111111111111';
@@ -37,8 +50,49 @@ class _MapViewState extends State<MapView> {
   void initState() {
     super.initState();
     _loadMapData();
-    _startRealTimeTracking();
+    _startRealTimeTracking(); // Esta llamada será manejada por _loadMapData()
   }
+
+  // ⬅️ MÉTODO PARA CANCELAR TODAS LAS SUSCRIPCIONES Y ROMPER EL BUCLE
+  void _cancelAllSubscriptions() {
+    for (var sub in _alertSubscriptions) {
+      sub.cancel();
+    }
+    _alertSubscriptions.clear();
+    _busLocationSubscription?.cancel();
+    _busLocationSubscription = null;
+    print('🚫 Suscripciones anteriores canceladas.');
+  }
+
+  // CANCELAR EL TEMPORIZADOR Y STREAMS EN DISPOSE
+  @override
+  void dispose() {
+    _alertTimer?.cancel();
+    _cancelAllSubscriptions(); // Aseguramos que se cancelen al salir
+    _mapController?.dispose();
+    super.dispose();
+  }
+
+  // NUEVO MÉTODO AUXILIAR PARA MOSTRAR LA ALERTA
+  void _showAlertMessage(String routeName) {
+    if (!_isAlertVisible) {
+      setState(() {
+        _topAlertMessage = '🚌 ¡${routeName} ha iniciado su recorrido!';
+        _isAlertVisible = true;
+      });
+
+      _alertTimer?.cancel();
+      _alertTimer = Timer(const Duration(seconds: 4), () {
+        if (mounted) {
+          setState(() {
+            _isAlertVisible = false;
+            _topAlertMessage = null;
+          });
+        }
+      });
+    }
+  }
+
 
   List<LatLng> _parsePolyline(String polylineString) {
     final points = <LatLng>[];
@@ -65,6 +119,7 @@ class _MapViewState extends State<MapView> {
 
   Future<void> _loadMapData() async {
     setState(() => _isLoading = true);
+    _cancelAllSubscriptions(); // ⬅️ CORRECCIÓN CLAVE: Cancela todos los streams antes de recrearlos.
 
     try {
       print('📍 Cargando datos del mapa...');
@@ -84,6 +139,15 @@ class _MapViewState extends State<MapView> {
         print('⚠️ No hay rutas suscritas para mostrar');
         return;
       }
+
+      // INICIO DE VERIFICACIÓN INICIAL Y ESCUCHA DE ALERTAS
+      for (final routeId in subscribedRouteIds) {
+        // 1. Verificar estado actual (al cargar la vista)
+        _checkInitialActiveAlerts(routeId);
+        // 2. Iniciar escucha en tiempo real para futuros eventos
+        _listenForRouteAlerts(routeId);
+      }
+      // FIN DE LA LÓGICA DE ALERTA
 
       // Cargar todas las rutas
       final allRoutes = await _routesController.getAllActiveRoutes();
@@ -226,8 +290,58 @@ class _MapViewState extends State<MapView> {
     }
   }
 
+  // NUEVO MÉTODO: VERIFICA EL ESTADO INICIAL AL CARGAR LA VISTA
+  Future<void> _checkInitialActiveAlerts(String routeId) async {
+    try {
+      final activeAlerts = await _alertsController.fetchActiveAlertsByRoute(routeId);
+
+      if (activeAlerts.isNotEmpty) {
+        // Si hay alertas activas al cargar (es decir, la ruta ya inició)
+        final alert = activeAlerts.first;
+        final routeName = alert['title'] ?? 'Una Ruta Suscrita';
+        print('🔔 Alerta ACTIVA al cargar para la ruta $routeName');
+
+        // Muestra la notificación inmediatamente
+        _showAlertMessage(routeName);
+      }
+    } catch (e) {
+      print('❌ Error al checar alertas iniciales: $e');
+    }
+  }
+
+
+  // MÉTODO PARA ESCUCHAR Y MOSTRAR ALERTAS (reutiliza _showAlertMessage)
+  void _listenForRouteAlerts(String routeId) {
+    // Escucha el stream y guarda la suscripción
+    final subscription = _alertsController.watchActiveAlertsByRoute(routeId).listen((alerts) {
+
+      print('🔔 Alertas recibidas por stream para la ruta $routeId: ${alerts.length}');
+
+      // Itera sobre las alertas recibidas (el stream puede emitir varias)
+      for (final alert in alerts) {
+        // Verifica si es una alerta de inicio de ruta (depende del SQL Trigger)
+        if (alert['alert_type'] == 'route_start' && mounted) {
+          final routeName = alert['title'] ?? 'Una Ruta Suscrita';
+
+          // Muestra la notificación
+          _showAlertMessage(routeName);
+
+          // Volver a cargar el mapa completo para dibujar polyline, etc.
+          _loadMapData();
+        }
+      }
+    });
+
+    _alertSubscriptions.add(subscription); // ⬅️ Guarda la suscripción para poder cancelarla
+  }
+
+
   void _startRealTimeTracking() {
-    _busController.watchAllActiveBusLocations().listen((buses) async {
+    // Al igual que con las alertas, aquí deberíamos cancelar la suscripción anterior
+    // pero como solo es una, la manejamos con _busLocationSubscription
+    _busLocationSubscription?.cancel();
+
+    _busLocationSubscription = _busController.watchAllActiveBusLocations().listen((buses) async {
       // Obtener rutas suscritas
       final subscriptions = await _subscriptionsController.getUserSubscriptions(_userId);
       final subscribedRouteIds = subscriptions.map((sub) => sub['route_id'] as String).toSet();
@@ -275,6 +389,45 @@ class _MapViewState extends State<MapView> {
     });
   }
 
+  // WIDGET DE ALERTA SUPERIOR PERSONALIZADA
+  Widget _buildTopAlert({required String message, required bool isDark}) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+      decoration: BoxDecoration(
+          color: isDark ? AppColors.slate700 : AppColors.white,
+          borderRadius: BorderRadius.circular(12),
+          boxShadow: AppShadows.card,
+          border: Border.all(
+            color: AppColors.primary.withOpacity(0.5),
+            width: 2,
+          )
+      ),
+      child: Row(
+        children: [
+          Icon(Icons.directions_bus, color: AppColors.primary),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Text(
+              message,
+              style: AppTextStyles.bodyMedium.copyWith(
+                color: isDark ? AppColors.slate100 : AppColors.slate800,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          ),
+          InkWell(
+            onTap: () {
+              setState(() => _isAlertVisible = false);
+              _alertTimer?.cancel();
+            },
+            child: Icon(Icons.close, color: isDark ? AppColors.slate400 : AppColors.slate600, size: 20),
+          ),
+        ],
+      ),
+    );
+  }
+
+
   double _getMarkerColor(String transportType) {
     switch (transportType) {
       case 'bus':
@@ -319,6 +472,23 @@ class _MapViewState extends State<MapView> {
               _mapController = controller;
             },
           ),
+
+          // WIDGET DE ALERTA SUPERIOR EN EL STACK
+          if (_isAlertVisible && _topAlertMessage != null)
+            Positioned(
+              // Posicionado justo debajo del header de búsqueda
+              top: MediaQuery.of(context).padding.top + 70,
+              left: 16,
+              right: 16,
+              child: AnimatedOpacity(
+                duration: const Duration(milliseconds: 300),
+                opacity: _isAlertVisible ? 1.0 : 0.0,
+                child: _buildTopAlert(
+                  message: _topAlertMessage!,
+                  isDark: isDark,
+                ),
+              ),
+            ),
 
           if (_isLoading)
             Container(
@@ -473,12 +643,12 @@ class _MapViewState extends State<MapView> {
           colors: isDark
               ? [
             Colors.transparent,
-            AppColors.backgroundDark.withValues(alpha: 0.8),
+            AppColors.backgroundDark.withOpacity(0.8),
             AppColors.backgroundDark,
           ]
               : [
             Colors.transparent,
-            AppColors.white.withValues(alpha: 0.8),
+            AppColors.white.withOpacity(0.8),
             AppColors.white,
           ],
           stops: const [0.0, 0.2, 0.5],
@@ -491,8 +661,8 @@ class _MapViewState extends State<MapView> {
         ),
         decoration: BoxDecoration(
           color: isDark
-              ? AppColors.backgroundDark.withValues(alpha: 0.9)
-              : AppColors.white.withValues(alpha: 0.9),
+              ? AppColors.backgroundDark.withOpacity(0.9)
+              : AppColors.white.withOpacity(0.9),
         ),
         child: Row(
           mainAxisAlignment: MainAxisAlignment.spaceAround,
@@ -569,11 +739,5 @@ class _MapViewState extends State<MapView> {
         ),
       ),
     );
-  }
-
-  @override
-  void dispose() {
-    _mapController?.dispose();
-    super.dispose();
   }
 }
